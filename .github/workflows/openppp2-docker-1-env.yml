@@ -1,0 +1,68 @@
+name: openppp2-docker-1-env
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY_GHCR: ghcr.io
+  REGISTRY_DOCKERHUB: docker.io
+  IMAGE_NAME: ${{ github.repository_owner }}/openppp2
+  BOOST_VERSION: 1.86.0   # 设置默认的Boost版本
+  JEMALLOC_VERSION: 5.3.0 # 设置默认的jemalloc版本
+  OPENSSL_VERSION: 3.3.2  # 设置默认的OpenSSL版本
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for multi-platform builds
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GHCR }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ -z "${{ github.event.inputs.version }}" ]; then
+            VERSION=$(git describe --tags --always)
+          else
+            VERSION=${{ github.event.inputs.version }}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./openppp/Dockerfile.env
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.REGISTRY_DOCKERHUB }}/${{ env.IMAGE_NAME }}:env
+            ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}:env
+          build-args: |
+            BOOST_VERSION=${{ env.BOOST_VERSION }}
+            JEMALLOC_VERSION=${{ env.JEMALLOC_VERSION }}
+            OPENSSL_VERSION=${{ env.OPENSSL_VERSION }}
