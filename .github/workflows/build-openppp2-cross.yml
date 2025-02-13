@@ -101,6 +101,7 @@ jobs:
       with:
         repository: liulilittle/openppp2-ubuntu-3rd-environment
         path: 3rd
+        fetch-depth: 1
 
     - name: Set THIRD_PARTY_LIBRARY_DIR
       run: |
